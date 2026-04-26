@@ -515,6 +515,10 @@ The following helper functions provided by Dynacat are available:
 - `sortByFloat(key string, order string, arr []JSON): []JSON`: Sorts an array of JSON objects by a float key in either ascending or descending order.
 - `sortByTime(key string, layout string, order string, arr []JSON): []JSON`: Sorts an array of JSON objects by a time key in either ascending or descending order. The format must be provided in Go's [date format](https://pkg.go.dev/time#pkg-constants).
 - `concat(strings ...string) string`: Concatenates multiple strings together.
+- `list(items ...any) []any`: Creates a list from the provided values.
+- `append(arr []any, items ...any) []any`: Appends one or more values to a list.
+- `uniq(arr []any) []any`: Removes duplicate values from a list while preserving order.
+- `sortAlpha(arr []any) []any`: Sorts a list by each item's string representation in ascending order.
 - `unique(key string, arr []JSON) []JSON`: Returns a unique array of JSON objects based on the given key.
 - `percentChange(current float, previous float) float`: Calculates the percentage change between two numbers.
 - `startOfDay(t time.Time) time.Time`: Returns the start of the day for a given time.

@@ -11,6 +11,7 @@ import (
 	"log/slog"
 	"math"
 	"net/http"
+	"reflect"
 	"regexp"
 	"sort"
 	"strconv"
@@ -706,36 +707,66 @@ var customAPITemplateFuncs = func() template.FuncMap {
 		"list": func(items ...any) []any {
 			return items
 		},
-		// append adds an item to a []any slice and returns the new slice.
-		"append": func(slice []any, item any) []any {
-			return append(slice, item)
+		// append adds one or more items to a []any slice and returns the new slice.
+		"append": func(slice []any, items ...any) []any {
+			return append(slice, items...)
 		},
 		// uniq returns a new []any slice with duplicate values removed,
-		// preserving the order of first occurrence.
+		// preserving the order of first occurrence for all value types.
 		"uniq": func(slice []any) []any {
-			seen := make(map[any]struct{})
 			out := make([]any, 0, len(slice))
-			for _, v := range slice {
-				if _, ok := seen[v]; !ok {
-					seen[v] = struct{}{}
-					out = append(out, v)
+			for _, candidate := range slice {
+				isDuplicate := false
+
+				for _, existing := range out {
+					if reflect.DeepEqual(existing, candidate) {
+						isDuplicate = true
+						break
+					}
+				}
+
+				if !isDuplicate {
+					out = append(out, candidate)
 				}
 			}
+
 			return out
 		},
-		// sortAlpha sorts a []any slice of strings alphabetically ascending.
+		// sortAlpha sorts a []any slice by each item's string representation
+		// in ascending order while preserving all items.
 		"sortAlpha": func(slice []any) []any {
-			strs := make([]string, 0, len(slice))
-			for _, v := range slice {
-				if s, ok := v.(string); ok {
-					strs = append(strs, s)
+			type sortableItem struct {
+				value any
+				key   string
+			}
+
+			sortKey := func(value any) string {
+				if asString, ok := value.(string); ok {
+					return asString
 				}
+
+				// Prefer JSON for stable string output of maps/objects when possible.
+				if encoded, err := json.Marshal(value); err == nil {
+					return string(encoded)
+				}
+
+				return fmt.Sprint(value)
 			}
-			sort.Strings(strs)
-			out := make([]any, len(strs))
-			for i, s := range strs {
-				out[i] = s
+
+			items := make([]sortableItem, len(slice))
+			for i, value := range slice {
+				items[i] = sortableItem{value: value, key: sortKey(value)}
 			}
+
+			sort.SliceStable(items, func(i, j int) bool {
+				return items[i].key < items[j].key
+			})
+
+			out := make([]any, len(items))
+			for i := range items {
+				out[i] = items[i].value
+			}
+
 			return out
 		},
 	}
