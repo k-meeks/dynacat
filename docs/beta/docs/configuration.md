@@ -2801,6 +2801,16 @@ Preview:
 
 ![](images/stopwatch-widget-preview.png)
 
+#### Properties
+
+| Name | Type | Required | Default |
+| ---- | ---- | -------- | ------- |
+| start-on-open | boolean | no | false |
+
+##### `start-on-open`
+
+When set to `true`, the stopwatch will automatically start when the page loads. By default, the stopwatch starts paused and requires clicking the play button to begin.
+
 ### Todo
 
 A simple to-do list that allows you to add, edit and delete tasks. By default, tasks are stored in the browser's local storage. Optionally, tasks can be stored in a server-side SQLite database for persistence across browsers and devices.

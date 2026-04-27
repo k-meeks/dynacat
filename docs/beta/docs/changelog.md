@@ -1,3 +1,11 @@
+# Changes for 2.2.3
+- Add utility functions for array manipulation -> https://github.com/Panonim/dynacat/pull/60
+- Key Binding for easier navigation between pages
+- Fixed search widget query for bangs
+- Added start on page open for stopwatch widget
+- Fixed issue where groups would open multiple of the same links
+- Added caching for every widget 
+
 # Changes for 2.2.2
 - Resolved an issue where Reddit denied requests
 
