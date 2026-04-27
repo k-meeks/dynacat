@@ -28,14 +28,15 @@ var dynawidgetsTemplateHost = "raw.githubusercontent.com"
 
 type dynawidgetsWidget struct {
 	widgetBase        `yaml:",inline"`
-	Widget            string                       `yaml:"widget"`
-	Repo              string                       `yaml:"repo"`
+	Widget            string `yaml:"widget"`
+	Repo              string `yaml:"repo"`
 	*CustomAPIRequest `yaml:",inline"`
-	Subrequests       map[string]*CustomAPIRequest  `yaml:"subrequests"`
-	Options           customAPIOptions              `yaml:"options"`
-	Frameless         bool                          `yaml:"frameless"`
-	compiledTemplate  *template.Template            `yaml:"-"`
-	CompiledHTML      template.HTML                 `yaml:"-"`
+	Subrequests       map[string]*CustomAPIRequest `yaml:"subrequests"`
+	Options           customAPIOptions             `yaml:"options"`
+	Frameless         bool                         `yaml:"frameless"`
+	templateContent   string                       `yaml:"-"`
+	compiledTemplate  *template.Template           `yaml:"-"`
+	CompiledHTML      template.HTML                `yaml:"-"`
 }
 
 type dynawidgetsListEntry struct {
@@ -72,6 +73,7 @@ func (widget *dynawidgetsWidget) initialize() error {
 	if err != nil {
 		return fmt.Errorf("resolving dynawidget template: %w", err)
 	}
+	widget.templateContent = templateContent
 
 	if widget.Title == "" && title != "" {
 		widget.Title = title
@@ -87,7 +89,7 @@ func (widget *dynawidgetsWidget) initialize() error {
 		}
 	}
 
-	compiledTemplate, err := template.New("").Funcs(customAPITemplateFuncs).Parse(templateContent)
+	compiledTemplate, err := template.New("").Funcs(customAPITemplateFuncs(nil)).Parse(templateContent)
 	if err != nil {
 		return fmt.Errorf("parsing template: %w", err)
 	}
@@ -127,7 +129,22 @@ func (widget *dynawidgetsWidget) update(ctx context.Context) {
 	}
 
 	widget.Hidden = hidden
-	widget.CompiledHTML = compiledHTML
+	widget.CompiledHTML = rewriteImgSrcs(ctx, compiledHTML, widget.Providers)
+}
+
+func (widget *dynawidgetsWidget) setProviders(providers *widgetProviders) {
+	widget.widgetBase.setProviders(providers)
+	if widget.templateContent == "" {
+		return
+	}
+
+	compiledTemplate, err := template.New("").Funcs(customAPITemplateFuncs(providers)).Parse(widget.templateContent)
+	if err != nil {
+		slog.Error("Failed to recompile dynawidget template", "error", err)
+		return
+	}
+
+	widget.compiledTemplate = compiledTemplate
 }
 
 func (widget *dynawidgetsWidget) Render() template.HTML {

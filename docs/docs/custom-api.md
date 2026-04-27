@@ -496,6 +496,8 @@ The following helper functions provided by Dynacat are available:
 - `formatTime(layout string, s string) time.Time`: Formats a `time.Time` into a string. The layout uses the same format as `parseTime`.
 - `parseLocalTime(layout string, s string) time.Time`: Same as the above, except in the absence of a timezone, it will use the local timezone instead of UTC.
 - `parseRelativeTime(layout string, s string) time.Time`: A shorthand for `{{ .String "date" | parseTime "rfc3339" | toRelativeTime }}`.
+- `secureImageURL(url string) string`: Returns a cached or proxied URL for a remote image without exposing credentials.
+- `secureImageURLAllowInsecure(url string) string`: Same as `secureImageURL`, but allows insecure TLS for self-signed hosts.
 - `add(a, b float) float`: Adds two numbers.
 - `sub(a, b float) float`: Subtracts two numbers.
 - `mul(a, b float) float`: Multiplies two numbers.

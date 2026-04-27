@@ -66,7 +66,7 @@ func (widget *customAPIWidget) initialize() error {
 		return errors.New("template is required")
 	}
 
-	compiledTemplate, err := template.New("").Funcs(customAPITemplateFuncs).Parse(widget.Template)
+	compiledTemplate, err := template.New("").Funcs(customAPITemplateFuncs(nil)).Parse(widget.Template)
 	if err != nil {
 		return fmt.Errorf("parsing template: %w", err)
 	}
@@ -96,7 +96,22 @@ func (widget *customAPIWidget) update(ctx context.Context) {
 	}
 
 	widget.Hidden = hidden
-	widget.CompiledHTML = compiledHTML
+	widget.CompiledHTML = rewriteImgSrcs(ctx, compiledHTML, widget.Providers)
+}
+
+func (widget *customAPIWidget) setProviders(providers *widgetProviders) {
+	widget.widgetBase.setProviders(providers)
+	if widget.Template == "" {
+		return
+	}
+
+	compiledTemplate, err := template.New("").Funcs(customAPITemplateFuncs(providers)).Parse(widget.Template)
+	if err != nil {
+		slog.Error("Failed to recompile custom API template", "error", err)
+		return
+	}
+
+	widget.compiledTemplate = compiledTemplate
 }
 
 func (widget *customAPIWidget) Render() template.HTML {
@@ -453,7 +468,7 @@ func customAPIDoMathOp[T int | float64](a, b T, op string) T {
 	return 0
 }
 
-var customAPITemplateFuncs = func() template.FuncMap {
+func customAPITemplateFuncs(providers *widgetProviders) template.FuncMap {
 	var regexpCacheMu sync.Mutex
 	var regexpCache = make(map[string]*regexp.Regexp)
 
@@ -493,6 +508,20 @@ var customAPITemplateFuncs = func() template.FuncMap {
 		default:
 			return math.NaN()
 		}
+	}
+
+	secureImageURL := func(rawURL string) string {
+		if providers == nil {
+			return rawURL
+		}
+		return providers.SecureImageURL(context.Background(), rawURL, false)
+	}
+
+	secureImageURLAllowInsecure := func(rawURL string) string {
+		if providers == nil {
+			return rawURL
+		}
+		return providers.SecureImageURL(context.Background(), rawURL, true)
 	}
 
 	funcs := template.FuncMap{
@@ -550,6 +579,8 @@ var customAPITemplateFuncs = func() template.FuncMap {
 			// Shorthand to do both of the above with a single function call
 			return dynamicRelativeTimeAttrs(customAPIFuncParseTimeInLocation(layout, value, time.UTC))
 		},
+		"secureImageURL":              secureImageURL,
+		"secureImageURLAllowInsecure": secureImageURLAllowInsecure,
 		"startOfDay": func(t time.Time) time.Time {
 			return time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, t.Location())
 		},
@@ -778,7 +809,7 @@ var customAPITemplateFuncs = func() template.FuncMap {
 	}
 
 	return funcs
-}()
+}
 
 func customAPIFuncFormatTime(layout string, t time.Time) string {
 	switch strings.ToLower(layout) {

@@ -8,7 +8,7 @@
             <div class="twitch-channel-avatar-container"{{ if .IsLive }} data-popover-type="html" data-popover-position="above" data-popover-margin="0.15rem" data-popover-offset="0.2"{{ end }}>
                 {{ if .IsLive }}
                 <div data-popover-html>
-                    <img class="twitch-stream-preview" src="https://static-cdn.jtvnw.net/previews-ttv/live_user_{{ .Login }}-440x248.jpg" loading="lazy" alt="">
+                    <img class="twitch-stream-preview" src="{{ .PreviewUrl }}" loading="lazy" alt="">
                     <p class="margin-top-10 color-highlight text-truncate-3-lines">{{ .StreamTitle }}</p>
                 </div>
                 {{ end }}

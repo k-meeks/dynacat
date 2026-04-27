@@ -7,14 +7,40 @@ import (
 	"encoding/xml"
 	"errors"
 	"fmt"
+	"html/template"
 	"io"
 	"math/rand/v2"
 	"net/http"
+	"regexp"
 	"strconv"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
 )
+
+var imgSrcPattern = regexp.MustCompile(`(?i)<img([^>]*)\ssrc="([^"]*)"([^>]*)>`)
+
+func rewriteImgSrcs(ctx context.Context, html template.HTML, providers *widgetProviders) template.HTML {
+	if providers == nil {
+		return html
+	}
+	result := imgSrcPattern.ReplaceAllStringFunc(string(html), func(match string) string {
+		parts := imgSrcPattern.FindStringSubmatch(match)
+		if len(parts) < 4 {
+			return match
+		}
+		originalSrc := parts[2]
+		newSrc := providers.SecureImageURL(ctx, originalSrc, false)
+		if newSrc == originalSrc {
+			return match
+		}
+		escapedOriginal := strings.ReplaceAll(originalSrc, `'`, `\'`)
+		onerror := ` onerror="this.onerror=null;this.src='` + escapedOriginal + `'"`
+		return "<img" + parts[1] + ` src="` + newSrc + `"` + parts[3] + onerror + ">"
+	})
+	return template.HTML(result)
+}
 
 var (
 	errNoContent      = errors.New("failed to retrieve any content")

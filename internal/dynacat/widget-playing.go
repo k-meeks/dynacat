@@ -342,6 +342,21 @@ func (widget *playingWidget) fetchSessionsTask(ctx context.Context, host *Playin
 	}
 }
 
+func (widget *playingWidget) secureSessionThumbnails(ctx context.Context, host *PlayingHostConfig, sessions []mediaSession) []mediaSession {
+	if widget.Providers == nil {
+		return sessions
+	}
+
+	for i := range sessions {
+		if sessions[i].ThumbnailURL == "" {
+			continue
+		}
+		sessions[i].ThumbnailURL = widget.Providers.SecureImageURL(ctx, sessions[i].ThumbnailURL, host.AllowInsecure)
+	}
+
+	return sessions
+}
+
 func (widget *playingWidget) buildNavidromeAuthQuery(host *PlayingHostConfig) url.Values {
 	query := url.Values{}
 	query.Set("u", host.Username)
@@ -414,7 +429,7 @@ func (widget *playingWidget) fetchNavidromeSessions(ctx context.Context, host *P
 		sessions = append(sessions, session)
 	}
 
-	return sessions, nil
+	return widget.secureSessionThumbnails(ctx, host, sessions), nil
 }
 
 func (widget *playingWidget) fetchPlexSessions(ctx context.Context, host *PlayingHostConfig) ([]mediaSession, error) {
@@ -490,7 +505,7 @@ func (widget *playingWidget) fetchPlexSessions(ctx context.Context, host *Playin
 		sessions = append(sessions, session)
 	}
 
-	return sessions, nil
+	return widget.secureSessionThumbnails(ctx, host, sessions), nil
 }
 
 func (widget *playingWidget) fetchJellyfinSessions(ctx context.Context, host *PlayingHostConfig) ([]mediaSession, error) {
@@ -523,7 +538,12 @@ func (widget *playingWidget) fetchJellyfinSessions(ctx context.Context, host *Pl
 		slog.Info("Jellyfin: received sessions", "count", len(response))
 	}
 
-	return widget.parseJellyfinEmbySessions(host, "jellyfin", response)
+	sessions, err := widget.parseJellyfinEmbySessions(host, "jellyfin", response)
+	if err != nil {
+		return nil, err
+	}
+
+	return widget.secureSessionThumbnails(ctx, host, sessions), nil
 }
 
 func (widget *playingWidget) fetchEmbySessions(ctx context.Context, host *PlayingHostConfig) ([]mediaSession, error) {
@@ -553,7 +573,12 @@ func (widget *playingWidget) fetchEmbySessions(ctx context.Context, host *Playin
 		}
 	}
 
-	return widget.parseJellyfinEmbySessions(host, "emby", filtered)
+	sessions, err := widget.parseJellyfinEmbySessions(host, "emby", filtered)
+	if err != nil {
+		return nil, err
+	}
+
+	return widget.secureSessionThumbnails(ctx, host, sessions), nil
 }
 
 func (widget *playingWidget) parseJellyfinEmbySessions(host *PlayingHostConfig, serverType string, response jellyfinEmbySessionsResponse) ([]mediaSession, error) {

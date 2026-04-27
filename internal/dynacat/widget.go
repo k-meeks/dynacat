@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"math"
 	"net/http"
+	"net/url"
 	"sync/atomic"
 	"time"
 
@@ -195,6 +196,11 @@ type widgetProviders struct {
 func (p *widgetProviders) SecureImageURL(ctx context.Context, imageURL string, allowInsecure bool) string {
 	if imageURL == "" {
 		return ""
+	}
+
+	parsedURL, err := url.Parse(imageURL)
+	if err != nil || (parsedURL.Scheme != "http" && parsedURL.Scheme != "https") || parsedURL.Host == "" {
+		return imageURL
 	}
 
 	hash := hashString(imageURL)

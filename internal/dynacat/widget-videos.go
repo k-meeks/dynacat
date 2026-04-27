@@ -79,6 +79,15 @@ func (widget *videosWidget) update(ctx context.Context) {
 		videos = videos[:widget.Limit]
 	}
 
+	if widget.Providers != nil {
+		for i := range videos {
+			if videos[i].ThumbnailUrl == "" {
+				continue
+			}
+			videos[i].ThumbnailUrl = widget.Providers.SecureImageURL(ctx, videos[i].ThumbnailUrl, false)
+		}
+	}
+
 	widget.Videos = videos
 }
 

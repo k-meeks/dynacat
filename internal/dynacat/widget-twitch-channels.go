@@ -57,6 +57,21 @@ func (widget *twitchChannelsWidget) update(ctx context.Context) {
 		channels.sortByLive()
 	}
 
+	for i := range channels {
+		if channels[i].IsLive {
+			channels[i].PreviewUrl = buildTwitchPreviewURL(channels[i].Login)
+		}
+		if widget.Providers == nil {
+			continue
+		}
+		if channels[i].AvatarUrl != "" {
+			channels[i].AvatarUrl = widget.Providers.SecureImageURL(ctx, channels[i].AvatarUrl, false)
+		}
+		if channels[i].PreviewUrl != "" {
+			channels[i].PreviewUrl = widget.Providers.SecureImageURL(ctx, channels[i].PreviewUrl, false)
+		}
+	}
+
 	widget.Channels = channels
 }
 
@@ -69,6 +84,7 @@ type twitchChannel struct {
 	Exists       bool
 	Name         string
 	StreamTitle  string
+	PreviewUrl   string
 	AvatarUrl    string
 	IsLive       bool
 	LiveSince    time.Time
@@ -89,6 +105,13 @@ func (channels twitchChannelList) sortByLive() {
 	sort.SliceStable(channels, func(i, j int) bool {
 		return channels[i].IsLive && !channels[j].IsLive
 	})
+}
+
+func buildTwitchPreviewURL(login string) string {
+	if login == "" {
+		return ""
+	}
+	return fmt.Sprintf("https://static-cdn.jtvnw.net/previews-ttv/live_user_%s-440x248.jpg", login)
 }
 
 type twitchOperationResponse struct {

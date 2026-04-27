@@ -96,6 +96,15 @@ func (widget *rssWidget) update(ctx context.Context) {
 		items = items[:widget.Limit]
 	}
 
+	if widget.Providers != nil {
+		for i := range items {
+			if items[i].ImageURL == "" {
+				continue
+			}
+			items[i].ImageURL = widget.Providers.SecureImageURL(ctx, items[i].ImageURL, false)
+		}
+	}
+
 	widget.Items = items
 }
 

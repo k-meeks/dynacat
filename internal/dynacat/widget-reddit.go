@@ -111,6 +111,15 @@ func (widget *redditWidget) update(ctx context.Context) {
 		posts.sortByEngagement()
 	}
 
+	if widget.Providers != nil {
+		for i := range posts {
+			if posts[i].ThumbnailUrl == "" {
+				continue
+			}
+			posts[i].ThumbnailUrl = widget.Providers.SecureImageURL(ctx, posts[i].ThumbnailUrl, false)
+		}
+	}
+
 	widget.Posts = posts
 }
 

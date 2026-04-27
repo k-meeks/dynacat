@@ -50,6 +50,15 @@ func (widget *twitchGamesWidget) update(ctx context.Context) {
 		return
 	}
 
+	if widget.Providers != nil {
+		for i := range categories {
+			if categories[i].AvatarUrl == "" {
+				continue
+			}
+			categories[i].AvatarUrl = widget.Providers.SecureImageURL(ctx, categories[i].AvatarUrl, false)
+		}
+	}
+
 	widget.Categories = categories
 }
 
