@@ -1,3 +1,7 @@
+# Changes for 2.2.3
+- Add utility functions for array manipulation -> https://github.com/Panonim/dynacat/pull/60
+- Key Binding for easier navigation between pages
+
 # Changes for 2.2.2
 - Resolved an issue where Reddit denied requests
 

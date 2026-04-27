@@ -136,7 +136,9 @@ function setupSearchBoxes() {
             let searchUrlTemplate;
 
             if (currentBang != null) {
-                query = input.slice(currentBang.dataset.shortcut.length + 1);
+                const shortcut = currentBang.dataset.shortcut;
+                const rawQuery = input.startsWith(shortcut) ? input.slice(shortcut.length) : input;
+                query = rawQuery.trim();
                 searchUrlTemplate = currentBang.dataset.url;
             } else {
                 query = input;
@@ -146,7 +148,10 @@ function setupSearchBoxes() {
                 return;
             }
 
-            const url = searchUrlTemplate.replace("!QUERY!", encodeURIComponent(query));
+            const encodedQuery = encodeURIComponent(query);
+            const url = searchUrlTemplate
+                .replace("!QUERY!", encodedQuery)
+                .replace("{QUERY}", encodedQuery);
 
             if (openInNewTab) {
                 window.open(url, target).focus();
@@ -165,6 +170,9 @@ function setupSearchBoxes() {
             }
 
             if (event.key == "Enter") {
+                // Prevent the form submit event from firing a second search after
+                // keydown already handled submission.
+                event.preventDefault();
                 const openInNewTab = newTab && !event.ctrlKey || !newTab && event.ctrlKey;
                 submitSearch(openInNewTab);
                 return;
