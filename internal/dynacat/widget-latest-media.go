@@ -34,11 +34,13 @@ type latestMediaWidget struct {
 
 type latestMediaHostConfig struct {
 	URL           string   `yaml:"url"`
+	PublicURL     string   `yaml:"public-url"`
 	Token         string   `yaml:"token"`
 	AllowInsecure bool     `yaml:"allow-insecure"`
 	Libraries     []string `yaml:"libraries"`
 	ServerType    string   `yaml:"-"`
 	BaseURL       string   `yaml:"-"`
+	PublicBaseURL string   `yaml:"-"`
 }
 
 type latestMediaItem struct {
@@ -109,6 +111,11 @@ func (widget *latestMediaWidget) initialize() error {
 		host.BaseURL = baseURL
 		if serverType != "plex" && serverType != "jellyfin" && serverType != "emby" {
 			return fmt.Errorf("unsupported host type for latest-media: %s", serverType)
+		}
+		if host.PublicURL != "" {
+			host.PublicBaseURL = strings.TrimRight(host.PublicURL, "/")
+		} else {
+			host.PublicBaseURL = baseURL
 		}
 		widget.hostAllowInsecure[baseURL] = host.AllowInsecure
 	}
@@ -320,7 +327,7 @@ func (widget *latestMediaWidget) fetchPlexLatest(ctx context.Context, host *late
 				item.CoverURL = fmt.Sprintf("%s%s?X-Plex-Token=%s", baseURL, artPath, host.Token)
 			}
 
-			item.LinkURL = fmt.Sprintf("%s/web/index.html#!/server", baseURL)
+			item.LinkURL = fmt.Sprintf("%s/web/index.html#!/server", host.PublicBaseURL)
 
 			items = append(items, item)
 		}
@@ -468,7 +475,7 @@ func (widget *latestMediaWidget) fetchJellyfinEmbyLatestFromParent(
 		if raw.Id != "" {
 			item.CoverURL = fmt.Sprintf("%s/Items/%s/Images/Art?api_key=%s", baseURL, raw.Id, host.Token)
 			item.ThumbnailURL = fmt.Sprintf("%s/Items/%s/Images/Primary?api_key=%s", baseURL, raw.Id, host.Token)
-			item.LinkURL = fmt.Sprintf("%s/web/index.html#!/details?id=%s", baseURL, raw.Id)
+			item.LinkURL = fmt.Sprintf("%s/web/index.html#!/details?id=%s", host.PublicBaseURL, raw.Id)
 		}
 
 		items = append(items, item)
