@@ -3273,6 +3273,7 @@ Properties for each host:
 | ---- | ---- | -------- | ------- | ----- |
 | url | string | yes | | Must include server type prefix |
 | token | string | yes | | API key or token for authentication |
+| public-url | string | no | same as `url` | Public-facing base URL used for item links (clicks); useful when the internal fetch URL differs from what users should open in their browser |
 | allow-insecure | boolean | no | false | Ignore invalid/self-signed certificates |
 | libraries | array of strings | no | | Filter to specific library names; omit to fetch from all libraries |
 
@@ -3302,6 +3303,9 @@ When set to `true`, halves the number of columns. Useful when placing the widget
 
 ##### `show-overlay`
 When `true` (default), each card displays a dark gradient overlay at the bottom containing the title, year, duration (movies only), and relative time since it was added. Set to `false` to show only the poster thumbnail without any overlay text.
+
+#####  `public-url`
+Public-facing base URL used for clickable item links and public image thumbnails for this host. When set, Dynacat will use this value when building URLs; when not set Dynacat defaults to the `url`.
 
 #### API Access & Tokens
 
