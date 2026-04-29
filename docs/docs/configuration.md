@@ -1856,6 +1856,7 @@ symbol-link-template: https://www.google.com/search?tbm=nws&q={SYMBOL}
 | name | string | no |
 | symbol-link | string | no |
 | chart-link | string | no |
+| invert-colors | boolean | no |
 
 `symbol`
 
@@ -1872,6 +1873,10 @@ The link to go to when clicking on the symbol.
 `chart-link`
 
 The link to go to when clicking on the chart.
+
+`invert-colors`
+
+When set to `true`, inverts the color coding so that a price decrease is shown in the positive color and an increase in the negative color. Useful for currency pairs where a lower value is desirable.
 
 ### Monitor
 Display a list of sites and whether they are reachable (online) or not. This is determined by sending a GET request to the specified URL, if the response is 200 then the site is OK. The time it took to receive a response is also shown in milliseconds.
@@ -2801,6 +2806,16 @@ Preview:
 
 ![](images/stopwatch-widget-preview.png)
 
+#### Properties
+
+| Name | Type | Required | Default |
+| ---- | ---- | -------- | ------- |
+| start-on-open | boolean | no | false |
+
+##### `start-on-open`
+
+When set to `true`, the stopwatch will automatically start when the page loads. By default, the stopwatch starts paused and requires clicking the play button to begin.
+
 ### Todo
 
 A simple to-do list that allows you to add, edit and delete tasks. By default, tasks are stored in the browser's local storage. Optionally, tasks can be stored in a server-side SQLite database for persistence across browsers and devices.
@@ -3263,6 +3278,7 @@ Properties for each host:
 | ---- | ---- | -------- | ------- | ----- |
 | url | string | yes | | Must include server type prefix |
 | token | string | yes | | API key or token for authentication |
+| public-url | string | no | same as `url` | Public-facing base URL used for item links (clicks); useful when the internal fetch URL differs from what users should open in their browser |
 | allow-insecure | boolean | no | false | Ignore invalid/self-signed certificates |
 | libraries | array of strings | no | | Filter to specific library names; omit to fetch from all libraries |
 
@@ -3292,6 +3308,9 @@ When set to `true`, halves the number of columns. Useful when placing the widget
 
 ##### `show-overlay`
 When `true` (default), each card displays a dark gradient overlay at the bottom containing the title, year, duration (movies only), and relative time since it was added. Set to `false` to show only the poster thumbnail without any overlay text.
+
+#####  `public-url`
+Public-facing base URL used for clickable item links and public image thumbnails for this host. When set, Dynacat will use this value when building URLs; when not set Dynacat defaults to the `url`.
 
 #### API Access & Tokens
 

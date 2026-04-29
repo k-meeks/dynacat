@@ -496,6 +496,8 @@ The following helper functions provided by Dynacat are available:
 - `formatTime(layout string, s string) time.Time`: Formats a `time.Time` into a string. The layout uses the same format as `parseTime`.
 - `parseLocalTime(layout string, s string) time.Time`: Same as the above, except in the absence of a timezone, it will use the local timezone instead of UTC.
 - `parseRelativeTime(layout string, s string) time.Time`: A shorthand for `{{ .String "date" | parseTime "rfc3339" | toRelativeTime }}`.
+- `secureImageURL(url string) string`: Returns a cached or proxied URL for a remote image without exposing credentials.
+- `secureImageURLAllowInsecure(url string) string`: Same as `secureImageURL`, but allows insecure TLS for self-signed hosts.
 - `add(a, b float) float`: Adds two numbers.
 - `sub(a, b float) float`: Subtracts two numbers.
 - `mul(a, b float) float`: Multiplies two numbers.
@@ -515,6 +517,10 @@ The following helper functions provided by Dynacat are available:
 - `sortByFloat(key string, order string, arr []JSON): []JSON`: Sorts an array of JSON objects by a float key in either ascending or descending order.
 - `sortByTime(key string, layout string, order string, arr []JSON): []JSON`: Sorts an array of JSON objects by a time key in either ascending or descending order. The format must be provided in Go's [date format](https://pkg.go.dev/time#pkg-constants).
 - `concat(strings ...string) string`: Concatenates multiple strings together.
+- `list(items ...any) []any`: Creates a list from the provided values.
+- `append(arr []any, items ...any) []any`: Appends one or more values to a list.
+- `uniq(arr []any) []any`: Removes duplicate values from a list while preserving order.
+- `sortAlpha(arr []any) []any`: Sorts a list by each item's string representation in ascending order.
 - `unique(key string, arr []JSON) []JSON`: Returns a unique array of JSON objects based on the given key.
 - `percentChange(current float, previous float) float`: Calculates the percentage change between two numbers.
 - `startOfDay(t time.Time) time.Time`: Returns the start of the day for a given time.
