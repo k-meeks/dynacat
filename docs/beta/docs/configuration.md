@@ -1856,6 +1856,7 @@ symbol-link-template: https://www.google.com/search?tbm=nws&q={SYMBOL}
 | name | string | no |
 | symbol-link | string | no |
 | chart-link | string | no |
+| invert-colors | boolean | no |
 
 `symbol`
 
@@ -1872,6 +1873,10 @@ The link to go to when clicking on the symbol.
 `chart-link`
 
 The link to go to when clicking on the chart.
+
+`invert-colors`
+
+When set to `true`, inverts the color coding so that a price decrease is shown in the positive color and an increase in the negative color. Useful for currency pairs where a lower value is desirable.
 
 ### Monitor
 Display a list of sites and whether they are reachable (online) or not. This is determined by sending a GET request to the specified URL, if the response is 200 then the site is OK. The time it took to receive a response is also shown in milliseconds.
