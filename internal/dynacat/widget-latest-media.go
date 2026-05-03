@@ -6,6 +6,7 @@ import (
 	"html/template"
 	"log/slog"
 	"net/http"
+	"net/url"
 	"regexp"
 	"sort"
 	"strings"
@@ -220,6 +221,12 @@ func (widget *latestMediaWidget) fetchLatestItems(ctx context.Context, host *lat
 
 // --- Plex ---
 
+type plexIdentityResponse struct {
+	MediaContainer struct {
+		MachineIdentifier string `json:"machineIdentifier"`
+	} `json:"MediaContainer"`
+}
+
 type plexSectionsResponse struct {
 	MediaContainer struct {
 		Directory []struct {
@@ -251,6 +258,21 @@ type plexRecentlyAddedResponse struct {
 func (widget *latestMediaWidget) fetchPlexLatest(ctx context.Context, host *latestMediaHostConfig) ([]latestMediaItem, error) {
 	client := ternary(host.AllowInsecure, defaultInsecureHTTPClient, defaultHTTPClient)
 	baseURL := strings.TrimRight(host.BaseURL, "/")
+
+	// Fetch machine identifier for deep links
+	var machineID string
+	identityURL := fmt.Sprintf("%s/identity", baseURL)
+	identityReq, err := http.NewRequestWithContext(ctx, "GET", identityURL, nil)
+	if err == nil {
+		identityReq.Header.Set("X-Plex-Token", host.Token)
+		identityReq.Header.Set("Accept", "application/json")
+		identityResp, err := decodeJsonFromRequest[plexIdentityResponse](client, identityReq)
+		if err == nil {
+			machineID = identityResp.MediaContainer.MachineIdentifier
+		} else {
+			slog.Warn("failed to fetch plex machine identifier", "error", err)
+		}
+	}
 
 	// Fetch sections
 	sectionsURL := fmt.Sprintf("%s/library/sections", baseURL)
@@ -326,13 +348,18 @@ func (widget *latestMediaWidget) fetchPlexLatest(ctx context.Context, host *late
 				}
 			}
 			if thumbPath != "" {
-				item.ThumbnailURL = fmt.Sprintf("%s%s?X-Plex-Token=%s", baseURL, thumbPath, host.Token)
+				item.CoverURL = fmt.Sprintf("%s%s?X-Plex-Token=%s", baseURL, thumbPath, host.Token)
 			}
 			if artPath != "" {
-				item.CoverURL = fmt.Sprintf("%s%s?X-Plex-Token=%s", baseURL, artPath, host.Token)
+				item.ThumbnailURL = fmt.Sprintf("%s%s?X-Plex-Token=%s", baseURL, artPath, host.Token)
 			}
 
-			item.LinkURL = fmt.Sprintf("%s/web/index.html#!/server", host.PublicBaseURL)
+			if machineID != "" && meta.Key != "" {
+				item.LinkURL = fmt.Sprintf("%s/web/index.html#!/server/%s/details?key=%s",
+					host.PublicBaseURL, machineID, url.QueryEscape(meta.Key))
+			} else {
+				item.LinkURL = fmt.Sprintf("%s/web/index.html#!/server", host.PublicBaseURL)
+			}
 
 			items = append(items, item)
 		}
