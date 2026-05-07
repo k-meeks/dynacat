@@ -1,3 +1,8 @@
+# Changes for 2.X.X
+- Removed photos from latest-media widget
+- Fixed issue where latest-media widget wasn't receiving the correct thumbnail type from Plex
+- Every widget now supports `frameless: true`
+
 # Changes for 2.2.3
 - Add utility functions for array manipulation -> https://github.com/Panonim/dynacat/pull/60
 - Key Binding for easier navigation between pages
