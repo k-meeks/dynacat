@@ -19,6 +19,11 @@ func (widget *groupWidget) initialize() error {
 	widget.withError(nil)
 	widget.HideHeader = true
 
+	if len(widget.Widgets) == 0 {
+		widget.Hidden = true
+		return nil
+	}
+
 	for i := range widget.Widgets {
 		widget.Widgets[i].setHideHeader(true)
 
