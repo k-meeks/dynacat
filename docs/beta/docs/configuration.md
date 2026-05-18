@@ -3153,6 +3153,9 @@ Example:
   show-progress-bar: true
   group-by-host: false
 ```
+Preview:
+
+![](images/currently-playing-preview.png)
 
 #### Properties
 | Name | Type | Required | Default |
@@ -3376,6 +3379,9 @@ Example:
       username: admin
       password: adminadmin
 ```
+Preview:
+
+![](images/torrenting-preview.png)
 
 #### Properties
 | Name | Type | Required | Default |
