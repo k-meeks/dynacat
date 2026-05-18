@@ -1191,7 +1191,58 @@ function initThemePicker() {
     })
 }
 
+function initDesktopNavigationAutoshow() {
+    const navContainer = document.querySelector(".header-container-navigation-hover");
+    if (!navContainer) {
+        return;
+    }
+
+    const navAutoshowKey = "dynacat-nav-autoshow";
+    const navLinks = navContainer.querySelectorAll(".nav-item");
+
+    let shouldAutoshow = false;
+    try {
+        shouldAutoshow = sessionStorage.getItem(navAutoshowKey) === "1";
+        if (shouldAutoshow) {
+            sessionStorage.removeItem(navAutoshowKey);
+        }
+    } catch (e) {
+        shouldAutoshow = false;
+    }
+
+    if (shouldAutoshow) {
+        navContainer.classList.add("nav-autoshow");
+
+        const hide = () => {
+            navContainer.classList.remove("nav-autoshow");
+            window.removeEventListener("mousemove", hide, { capture: true });
+            window.removeEventListener("scroll", hide, { capture: true });
+            navContainer.removeEventListener("mouseleave", hide, { capture: true });
+        }
+
+        window.addEventListener("mousemove", hide, { passive: true, once: true, capture: true });
+        window.addEventListener("scroll", hide, { passive: true, once: true, capture: true });
+        navContainer.addEventListener("mouseleave", hide, { once: true, capture: true });
+        setTimeout(() => {
+            hide();
+        }, 1800);
+    }
+
+    for (let i = 0; i < navLinks.length; i++) {
+        const navLink = navLinks[i];
+        navLink.addEventListener("click", () => {
+            try {
+                sessionStorage.setItem(navAutoshowKey, "1");
+            } catch (e) {
+                return;
+            }
+        });
+    }
+}
+
 async function setupPage() {
+    initDesktopNavigationAutoshow();
+
     initThemePicker();
 
     const pageElement = document.getElementById("page");
