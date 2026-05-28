@@ -1,5 +1,7 @@
 # Changes for 2.X.X
-- Added support for loading environment variables from a file via `--env-file`.
+- Added support for loading environment variables from a file via `--env-file`
+- Made initial loading faster by fetching data on service start
+- Fixed an issue where `glance.yml` was not detected correctly which would cause issues when transitioning
 
 # Changes for 2.3.0
 - Removed photos from latest-media widget
