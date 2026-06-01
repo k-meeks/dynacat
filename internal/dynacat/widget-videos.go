@@ -230,7 +230,11 @@ func fetchYoutubeChannelUploads(channelOrPlaylistIDs []string, videoUrlTemplate 
 
 		if errs[i] != nil {
 			failed++
-			slog.Error("Failed to fetch youtube feed", "channel", id, "error", errs[i])
+			if strings.Contains(errs[i].Error(), "status code 404") {
+				slog.Error("YouTube channel or playlist not found", "channel", id)
+			} else {
+				slog.Error("Failed to fetch youtube feed", "channel", id, "error", errs[i])
+			}
 
 			if cache != nil {
 				if cached, ok := cache[id]; ok && len(cached) > 0 {

@@ -1027,6 +1027,7 @@ func (a *application) server() (func() error, func() error) {
 
 	ctx, cancelCtx := context.WithCancel(context.Background())
 	go a.sseUpdateLoop(ctx)
+	go a.prewarmWidgets()
 	if a.oidcSessions != nil {
 		go a.oidcSessions.runSweeper(ctx, 15*time.Minute, OIDC_SESSION_VALID_PERIOD)
 	}
@@ -1037,4 +1038,19 @@ func (a *application) server() (func() error, func() error) {
 	}
 
 	return start, stop
+}
+
+func (a *application) prewarmWidgets() {
+	var wg sync.WaitGroup
+	for p := range a.Config.Pages {
+		page := &a.Config.Pages[p]
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			page.mu.Lock()
+			defer page.mu.Unlock()
+			page.updateOutdatedWidgets()
+		}()
+	}
+	wg.Wait()
 }

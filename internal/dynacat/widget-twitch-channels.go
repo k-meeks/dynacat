@@ -233,6 +233,9 @@ func fetchChannelsFromTwitchOperations(channelLogins []string, response []twitch
 			failed++
 			continue
 		}
+		if !channel.Exists {
+			slog.Warn("Twitch channel not found", "channel", channelLogins[i])
+		}
 		channels = append(channels, channel)
 	}
 
