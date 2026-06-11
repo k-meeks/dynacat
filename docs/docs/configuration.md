@@ -178,7 +178,7 @@ icon: auto-invert sh:dynacat-dark # with a selfh.st icon
 
 This expects the icon to be black and will automatically invert it to white when using a dark theme.
 
-The same icon syntax and prefixes also work for `title-icon`.
+The same icon syntax and prefixes also work for `title-icon` as well as the page `name-icon` (see [Pages](#pages)), which places an icon to the left of the page name in the navigation bar.
 
 If an icon URL cannot be loaded (for example, the file does not exist or the host is unreachable), Dynacat will hide the icon and render the widget as if no icon was configured.
 
@@ -497,6 +497,7 @@ pages:
 | Name | Type | Required | Default |
 | ---- | ---- | -------- | ------- |
 | name | string | yes | |
+| name-icon | string | no | |
 | slug | string | no | |
 | dynamic-updates | boolean | no | true |
 | width | string | no | |
@@ -511,6 +512,17 @@ pages:
 
 #### `name`
 The name of the page which gets shown in the navigation bar.
+
+#### `name-icon`
+An icon shown to the left of the page name in the navigation bar (both desktop and mobile). It uses the same syntax and prefixes as every other icon, see [Icons](#icons) for more information. Example:
+
+```yaml
+pages:
+  - name: "News"
+    slug: news
+    name-icon: mdi:newspaper-variant-outline
+    columns: ...
+```
 
 #### `slug`
 The URL friendly version of the title which is used to access the page. For example if the title of the page is "RSS Feeds" you can make the page accessible via `localhost:8080/feeds` by setting the slug to `feeds`. If not defined, it will automatically be generated from the title.

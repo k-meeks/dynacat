@@ -78,12 +78,12 @@ type application struct {
 
 func newApplication(c *config) (*application, error) {
 	app := &application{
-		Version:        buildVersion,
-		CreatedAt:      time.Now(),
-		Config:         *c,
-		slugToPage:     make(map[string]*page),
-		widgetByID:     make(map[uint64]widget),
-		widgetToPage:   make(map[uint64]*page),
+		Version:          buildVersion,
+		CreatedAt:        time.Now(),
+		Config:           *c,
+		slugToPage:       make(map[string]*page),
+		widgetByID:       make(map[uint64]widget),
+		widgetToPage:     make(map[uint64]*page),
 		sseClients:       make(map[*sseClient]struct{}),
 		imageProxyURLs:   make(map[string]imageProxyInfo),
 		todoListIDToPage: make(map[string]*page),
@@ -266,6 +266,8 @@ func newApplication(c *config) (*application, error) {
 			page.Slug = titleToSlug(page.Title)
 		}
 
+		page.NameIcon.prepare(providers)
+
 		if slices.Contains(reservedPageSlugs, page.Slug) {
 			return nil, fmt.Errorf("page slug \"%s\" is reserved", page.Slug)
 		}
@@ -415,17 +417,6 @@ func (a *application) sseUnregisterClient(c *sseClient) {
 	a.sseMu.Lock()
 	delete(a.sseClients, c)
 	a.sseMu.Unlock()
-}
-
-func (a *application) sseBroadcast(msg string) {
-	a.sseMu.RLock()
-	defer a.sseMu.RUnlock()
-	for c := range a.sseClients {
-		select {
-		case c.ch <- msg:
-		default: // client too slow; drop rather than block
-		}
-	}
 }
 
 func (p *page) updateOutdatedWidgets() {

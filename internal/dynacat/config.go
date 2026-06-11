@@ -100,17 +100,18 @@ type user struct {
 }
 
 type page struct {
-	Title                  string  `yaml:"name"`
-	Slug                   string  `yaml:"slug"`
-	DynamicUpdates         *bool   `yaml:"dynamic-updates"`
-	Width                  string  `yaml:"width"`
-	DesktopNavigationWidth string  `yaml:"desktop-navigation-width"`
-	ShowMobileHeader       bool    `yaml:"show-mobile-header"`
-	HideDesktopNavigation  bool    `yaml:"hide-desktop-navigation"`
-	CenterVertically       bool    `yaml:"center-vertically"`
-	HideFromNavigation     bool    `yaml:"hide-from-navigation"`
-	KeyBind                string  `yaml:"key-bind"`
-	HeadWidgets            widgets `yaml:"head-widgets"`
+	Title                  string          `yaml:"name"`
+	NameIcon               customIconField `yaml:"name-icon"`
+	Slug                   string          `yaml:"slug"`
+	DynamicUpdates         *bool           `yaml:"dynamic-updates"`
+	Width                  string          `yaml:"width"`
+	DesktopNavigationWidth string          `yaml:"desktop-navigation-width"`
+	ShowMobileHeader       bool            `yaml:"show-mobile-header"`
+	HideDesktopNavigation  bool            `yaml:"hide-desktop-navigation"`
+	CenterVertically       bool            `yaml:"center-vertically"`
+	HideFromNavigation     bool            `yaml:"hide-from-navigation"`
+	KeyBind                string          `yaml:"key-bind"`
+	HeadWidgets            widgets         `yaml:"head-widgets"`
 	Columns                []struct {
 		Size    string  `yaml:"size"`
 		Widgets widgets `yaml:"widgets"`
