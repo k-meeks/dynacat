@@ -535,7 +535,6 @@ func (widget *torrentingWidget) delugeEnsureConnected(ctx context.Context, host 
 func (widget *torrentingWidget) fetchFromDeluge(ctx context.Context, host *TorrentingHostConfig) ([]torrentInfo, error) {
 	torrents, err := widget.delugeFetchTorrentsOnce(ctx, host)
 	if errors.Is(err, errTorrentUnauthorized) {
-		slog.Info("Deluge session expired, re-logging in", "url", host.URL)
 		if loginErr := widget.delugeLogin(ctx, host); loginErr != nil {
 			slog.Error("Deluge re-login failed", "url", host.URL, "error", loginErr)
 			return nil, loginErr
