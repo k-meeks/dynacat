@@ -4,6 +4,7 @@
 - Fixed issue where todo widget highlight was too short
 - Fixed issue where in todo widget trash animation icon was slower than highlight
 - Added speedtest widget
+- Fixed issue where incorrect thumbnails were pulled for series
 
 # Changes for 2.3.1
 - Added support for loading environment variables from a file via `--env-file`
