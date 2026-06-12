@@ -1413,6 +1413,8 @@ async function updateWidget(widgetElement) {
         } else {
             widgetElement.removeAttribute("data-widget-hidden");
         }
+
+        syncWidgetUpdateInterval(widgetElement, newWidget);
 }
 
     if (newWidget && widgetElement.outerHTML !== newWidget.outerHTML) {
@@ -1500,6 +1502,30 @@ function updateContentPreservingImages(oldContent, newContent) {
     }
 
     oldContent.replaceWith(newContent);
+}
+
+// syncWidgetUpdateInterval keeps the polling cadence in step with a widget that
+// reports a dynamic data-update-interval (e.g. speedtest polls fast while testing,
+// then slows down once the result is in). updateWidget only swaps inner content, so
+// the root attribute and the polling state need to be reconciled explicitly.
+function syncWidgetUpdateInterval(widgetElement, newWidget) {
+    const newInterval = newWidget.dataset.updateInterval;
+
+    if (newInterval === undefined) {
+        return;
+    }
+
+    if (widgetElement.dataset.updateInterval === newInterval) {
+        return;
+    }
+
+    widgetElement.dataset.updateInterval = newInterval;
+
+    const ms = parseInt(newInterval, 10);
+    const state = widgetPollingStates.get(widgetElement);
+    if (state && !isNaN(ms) && ms > 0) {
+        state.intervalMs = ms;
+    }
 }
 
 function notifyWidgetUpdated(widgetElement) {

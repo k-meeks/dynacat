@@ -246,6 +246,16 @@ func (w *widgetBase) IsWIP() bool {
 	return w.WIP
 }
 
+// UpdateIntervalMs is the polling interval the page uses for this widget, in
+// milliseconds. Widgets can override it to poll dynamically (e.g. faster while a
+// background job runs, then back to the configured interval once it finishes).
+func (w *widgetBase) UpdateIntervalMs() int64 {
+	if w.UpdateInterval == nil {
+		return 0
+	}
+	return w.UpdateInterval.Milliseconds()
+}
+
 func (w *widgetBase) IsLazyLoad() bool {
 	return w.LazyLoad && !w.ContentAvailable
 }

@@ -30,19 +30,41 @@ const (
 	speedtestUploadChunk     = 1024 * 1024 // 1 MiB
 )
 
-type speedtestWidget struct {
-	widgetBase    `yaml:",inline"`
-	Frameless  bool          `yaml:"frameless"`
-	Server     string        `yaml:"server"`
-	Duration   durationField `yaml:"duration"`
-	Concurrent int           `yaml:"concurrent"`
+// Shared test runners are keyed by config so that multiple speedtest widgets with
+// identical settings share a single in-flight test and a single result, instead of
+// each widget hammering the network with its own test.
+var (
+	speedtestRunnersMu sync.Mutex
+	speedtestRunners   = map[string]*speedtestRunner{}
+)
 
-	mu       sync.Mutex
-	running  bool
-	started  bool
-	result   *speedtestResult
-	selected *speedtestServer
-	client   *http.Client
+func speedtestSharedRunner(server string, duration time.Duration, concurrent int) *speedtestRunner {
+	key := fmt.Sprintf("%s|%s|%d", server, duration, concurrent)
+
+	speedtestRunnersMu.Lock()
+	defer speedtestRunnersMu.Unlock()
+
+	if r, ok := speedtestRunners[key]; ok {
+		return r
+	}
+
+	r := &speedtestRunner{
+		server:     server,
+		duration:   duration,
+		concurrent: concurrent,
+		// A new test only starts when the previous one finished more than debounce
+		// ago, so the wave of widget polls that fire together collapses into one test.
+		debounce: 2*duration + 60*time.Second,
+		client: &http.Client{
+			Transport: &http.Transport{
+				MaxIdleConnsPerHost: concurrent + 2,
+				MaxConnsPerHost:     concurrent + 2,
+				Proxy:               http.ProxyFromEnvironment,
+			},
+		},
+	}
+	speedtestRunners[key] = r
+	return r
 }
 
 type speedtestResult struct {
@@ -58,6 +80,75 @@ type speedtestServer struct {
 	DlURL   string `json:"dlURL"`
 	UlURL   string `json:"ulURL"`
 	PingURL string `json:"pingURL"`
+}
+
+// speedtestRunner owns the actual test and its result. It is shared by every widget
+// with matching config.
+type speedtestRunner struct {
+	server     string
+	duration   time.Duration
+	concurrent int
+	debounce   time.Duration
+	client     *http.Client
+
+	mu         sync.Mutex
+	running    bool
+	started    bool
+	result     *speedtestResult
+	resultTime time.Time
+	lastErr    error
+	selected   *speedtestServer
+}
+
+// trigger starts a test in a detached goroutine and returns immediately, so a long
+// (~35s) run never stalls the page update batch. It is a no-op when a test is already
+// running or one finished within the debounce window, ensuring one test for all widgets.
+func (r *speedtestRunner) trigger() {
+	r.mu.Lock()
+	if r.running {
+		r.mu.Unlock()
+		return
+	}
+	if r.result != nil && time.Since(r.resultTime) < r.debounce {
+		r.mu.Unlock()
+		return
+	}
+	r.running = true
+	r.started = true
+	r.mu.Unlock()
+
+	go func() {
+		timeout := 2*r.duration + 45*time.Second
+		ctx, cancel := context.WithTimeout(context.Background(), timeout)
+		defer cancel()
+
+		res, err := r.runTest(ctx)
+
+		r.mu.Lock()
+		if err == nil {
+			r.result = res
+			r.resultTime = time.Now()
+		}
+		r.lastErr = err
+		r.running = false
+		r.mu.Unlock()
+	}()
+}
+
+func (r *speedtestRunner) snapshot() (res *speedtestResult, started bool, err error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.result, r.started, r.lastErr
+}
+
+type speedtestWidget struct {
+	widgetBase `yaml:",inline"`
+	Frameless  bool          `yaml:"frameless"`
+	Server     string        `yaml:"server"`
+	Duration   durationField `yaml:"duration"`
+	Concurrent int           `yaml:"concurrent"`
+
+	runner *speedtestRunner
 }
 
 func (widget *speedtestWidget) initialize() error {
@@ -79,71 +170,50 @@ func (widget *speedtestWidget) initialize() error {
 
 	widget.Server = strings.TrimRight(widget.Server, "/")
 
-	widget.client = &http.Client{
-		Transport: &http.Transport{
-			MaxIdleConnsPerHost: widget.Concurrent + 2,
-			MaxConnsPerHost:     widget.Concurrent + 2,
-			Proxy:               http.ProxyFromEnvironment,
-		},
-	}
+	widget.runner = speedtestSharedRunner(widget.Server, time.Duration(widget.Duration), widget.Concurrent)
 
 	return nil
 }
 
-// update launches the test in a detached goroutine and returns immediately, so a long
-// (~35s) run never stalls the page update batch. Displayed fields change only when the
-// test finishes, so partial numbers are never shown.
+// update reflects the shared runner's state and asks it to (re)start a test. The runner
+// itself deduplicates concurrent/recent requests, so many widgets cause a single test.
 func (widget *speedtestWidget) update(context.Context) {
-	widget.mu.Lock()
-	if widget.running {
-		widget.mu.Unlock()
-		return
-	}
-	widget.running = true
-	widget.started = true
 	widget.ContentAvailable = true
-	widget.mu.Unlock()
-
 	widget.scheduleNextUpdate()
 
-	go func() {
-		timeout := 2*time.Duration(widget.Duration) + 45*time.Second
-		ctx, cancel := context.WithTimeout(context.Background(), timeout)
-		defer cancel()
+	widget.runner.trigger()
 
-		res, err := widget.runTest(ctx)
-
-		widget.mu.Lock()
-		if err == nil {
-			widget.result = res
-		}
-		widget.running = false
-		widget.mu.Unlock()
-
-		if err != nil {
-			widget.withNotice(fmt.Errorf("speed test failed: %w", err))
-		} else {
-			widget.withNotice(nil)
-		}
-	}()
+	_, _, err := widget.runner.snapshot()
+	if err != nil {
+		widget.withNotice(fmt.Errorf("speed test failed: %w", err))
+	} else {
+		widget.withNotice(nil)
+	}
 }
 
 func (widget *speedtestWidget) Render() template.HTML {
 	return widget.renderTemplate(widget, speedtestWidgetTemplate)
 }
 
-// Template accessors (mutex-guarded: the background goroutine writes result concurrently).
+// UpdateIntervalMs polls quickly while a test runs so the freshly measured numbers
+// replace the loader within seconds, then falls back to the configured interval.
+func (widget *speedtestWidget) UpdateIntervalMs() int64 {
+	if widget.IsTesting() {
+		return (3 * time.Second).Milliseconds()
+	}
+	return widget.widgetBase.UpdateIntervalMs()
+}
+
+// Template accessors (runner is mutex-guarded: its background goroutine writes result concurrently).
 
 func (widget *speedtestWidget) HasResult() bool {
-	widget.mu.Lock()
-	defer widget.mu.Unlock()
-	return widget.result != nil
+	res, _, _ := widget.runner.snapshot()
+	return res != nil
 }
 
 func (widget *speedtestWidget) IsTesting() bool {
-	widget.mu.Lock()
-	defer widget.mu.Unlock()
-	return widget.started && widget.result == nil
+	res, started, _ := widget.runner.snapshot()
+	return started && res == nil
 }
 
 func (widget *speedtestWidget) Download() string {
@@ -159,46 +229,44 @@ func (widget *speedtestWidget) Ping() string {
 }
 
 func (widget *speedtestWidget) ServerName() string {
-	widget.mu.Lock()
-	defer widget.mu.Unlock()
-	if widget.result == nil {
+	res, _, _ := widget.runner.snapshot()
+	if res == nil {
 		return ""
 	}
-	return widget.result.ServerName
+	return res.ServerName
 }
 
 func (widget *speedtestWidget) formatMetric(get func(*speedtestResult) float64, decimals int) string {
-	widget.mu.Lock()
-	defer widget.mu.Unlock()
-	if widget.result == nil {
+	res, _, _ := widget.runner.snapshot()
+	if res == nil {
 		return "-"
 	}
-	return strconv.FormatFloat(get(widget.result), 'f', decimals, 64)
+	return strconv.FormatFloat(get(res), 'f', decimals, 64)
 }
 
 // runTest selects a server (if needed), then measures ping, download and upload.
 
-func (widget *speedtestWidget) runTest(ctx context.Context) (*speedtestResult, error) {
-	srv, err := widget.resolveServer(ctx)
+func (r *speedtestRunner) runTest(ctx context.Context) (*speedtestResult, error) {
+	srv, err := r.resolveServer(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	ping, err := widget.measurePing(ctx, srv)
+	ping, err := r.measurePing(ctx, srv)
 	if err != nil {
-		widget.mu.Lock()
-		widget.selected = nil // force re-selection next run
-		widget.mu.Unlock()
+		r.forgetAutoSelectedServer()
 		return nil, err
 	}
 
-	dl, err := widget.measureStream(ctx, srv, false)
+	dl, err := r.measureStream(ctx, srv, false)
 	if err != nil {
+		r.forgetAutoSelectedServer()
 		return nil, fmt.Errorf("download: %w", err)
 	}
 
-	ul, err := widget.measureStream(ctx, srv, true)
+	ul, err := r.measureStream(ctx, srv, true)
 	if err != nil {
+		r.forgetAutoSelectedServer()
 		return nil, fmt.Errorf("upload: %w", err)
 	}
 
@@ -210,42 +278,53 @@ func (widget *speedtestWidget) runTest(ctx context.Context) (*speedtestResult, e
 	}, nil
 }
 
-func (widget *speedtestWidget) resolveServer(ctx context.Context) (*speedtestServer, error) {
-	if widget.Server != "" {
+// forgetAutoSelectedServer clears the cached auto-selected server so the next run
+// re-probes and can pick a different, working one. No-op for a manually set server.
+func (r *speedtestRunner) forgetAutoSelectedServer() {
+	if r.server != "" {
+		return
+	}
+	r.mu.Lock()
+	r.selected = nil
+	r.mu.Unlock()
+}
+
+func (r *speedtestRunner) resolveServer(ctx context.Context) (*speedtestServer, error) {
+	if r.server != "" {
 		return &speedtestServer{
-			Name:    widget.Server,
-			Server:  widget.Server,
+			Name:    r.server,
+			Server:  r.server,
 			DlURL:   speedtestDefaultDlPath,
 			UlURL:   speedtestDefaultUlPath,
 			PingURL: speedtestDefaultPingPath,
 		}, nil
 	}
 
-	widget.mu.Lock()
-	cached := widget.selected
-	widget.mu.Unlock()
+	r.mu.Lock()
+	cached := r.selected
+	r.mu.Unlock()
 	if cached != nil {
 		return cached, nil
 	}
 
-	srv, err := widget.autoSelectServer(ctx)
+	srv, err := r.autoSelectServer(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	widget.mu.Lock()
-	widget.selected = srv
-	widget.mu.Unlock()
+	r.mu.Lock()
+	r.selected = srv
+	r.mu.Unlock()
 	return srv, nil
 }
 
-func (widget *speedtestWidget) autoSelectServer(ctx context.Context) (*speedtestServer, error) {
+func (r *speedtestRunner) autoSelectServer(ctx context.Context) (*speedtestServer, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, speedtestDefaultListURL, nil)
 	if err != nil {
 		return nil, err
 	}
 
-	servers, err := decodeJsonFromRequest[[]speedtestServer](widget.client, req)
+	servers, err := decodeJsonFromRequest[[]speedtestServer](r.client, req)
 	if err != nil {
 		return nil, fmt.Errorf("fetching server list: %w", err)
 	}
@@ -267,7 +346,7 @@ func (widget *speedtestWidget) autoSelectServer(ctx context.Context) (*speedtest
 			defer wg.Done()
 			pingCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
 			defer cancel()
-			latency, err := widget.pingOnce(pingCtx, &servers[idx])
+			latency, err := r.pingOnce(pingCtx, &servers[idx])
 			if err != nil {
 				results <- pingResult{idx: idx, latency: 0}
 				return
@@ -283,13 +362,13 @@ func (widget *speedtestWidget) autoSelectServer(ctx context.Context) (*speedtest
 
 	best := -1
 	var bestLatency time.Duration
-	for r := range results {
-		if r.latency <= 0 {
+	for res := range results {
+		if res.latency <= 0 {
 			continue
 		}
-		if best == -1 || r.latency < bestLatency {
-			best = r.idx
-			bestLatency = r.latency
+		if best == -1 || res.latency < bestLatency {
+			best = res.idx
+			bestLatency = res.latency
 		}
 	}
 
@@ -310,7 +389,7 @@ func speedtestJoinURL(base, path string) string {
 	return base + "/" + path
 }
 
-func (widget *speedtestWidget) pingOnce(ctx context.Context, srv *speedtestServer) (time.Duration, error) {
+func (r *speedtestRunner) pingOnce(ctx context.Context, srv *speedtestServer) (time.Duration, error) {
 	url := speedtestJoinURL(srv.Server, srv.PingURL)
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
@@ -319,7 +398,7 @@ func (widget *speedtestWidget) pingOnce(ctx context.Context, srv *speedtestServe
 	req.Header.Set("User-Agent", "dynacat-speedtest")
 
 	start := time.Now()
-	resp, err := widget.client.Do(req)
+	resp, err := r.client.Do(req)
 	if err != nil {
 		return 0, err
 	}
@@ -333,13 +412,13 @@ func (widget *speedtestWidget) pingOnce(ctx context.Context, srv *speedtestServe
 	return elapsed, nil
 }
 
-func (widget *speedtestWidget) measurePing(ctx context.Context, srv *speedtestServer) (float64, error) {
+func (r *speedtestRunner) measurePing(ctx context.Context, srv *speedtestServer) (float64, error) {
 	var total time.Duration
 	var count int
 
 	for i := 0; i < speedtestPingCount; i++ {
 		pingCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
-		latency, err := widget.pingOnce(pingCtx, srv)
+		latency, err := r.pingOnce(pingCtx, srv)
 		cancel()
 		if err != nil {
 			if i == 0 {
@@ -361,10 +440,10 @@ func (widget *speedtestWidget) measurePing(ctx context.Context, srv *speedtestSe
 	return float64(total.Microseconds()) / float64(count) / 1000.0, nil
 }
 
-// measureStream runs Concurrent staggered streams for Duration and returns Mbps.
+// measureStream runs concurrent staggered streams for duration and returns Mbps.
 // upload=false drives GET garbage downloads, upload=true drives POST uploads.
-func (widget *speedtestWidget) measureStream(ctx context.Context, srv *speedtestServer, upload bool) (float64, error) {
-	streamCtx, cancel := context.WithTimeout(ctx, time.Duration(widget.Duration))
+func (r *speedtestRunner) measureStream(ctx context.Context, srv *speedtestServer, upload bool) (float64, error) {
+	streamCtx, cancel := context.WithTimeout(ctx, r.duration)
 	defer cancel()
 
 	var counter atomic.Int64
@@ -380,7 +459,7 @@ func (widget *speedtestWidget) measureStream(ctx context.Context, srv *speedtest
 
 	start := time.Now()
 
-	for i := 0; i < widget.Concurrent; i++ {
+	for i := 0; i < r.concurrent; i++ {
 		select {
 		case <-streamCtx.Done():
 		case <-time.After(time.Duration(i) * speedtestStagger):
@@ -391,9 +470,9 @@ func (widget *speedtestWidget) measureStream(ctx context.Context, srv *speedtest
 			defer wg.Done()
 			for streamCtx.Err() == nil {
 				if upload {
-					widget.uploadOnce(streamCtx, srv, payload, &counter)
+					r.uploadOnce(streamCtx, srv, payload, &counter)
 				} else {
-					widget.downloadOnce(streamCtx, srv, &counter)
+					r.downloadOnce(streamCtx, srv, &counter)
 				}
 			}
 		}()
@@ -405,11 +484,19 @@ func (widget *speedtestWidget) measureStream(ctx context.Context, srv *speedtest
 		return 0, fmt.Errorf("invalid elapsed time")
 	}
 
-	mbps := float64(counter.Load()) / elapsed / 125000.0
+	// No bytes transferred means the chosen server's endpoint failed (bad path,
+	// refused upload, etc). Report it as an error so the run retries instead of
+	// storing a bogus 0.0 Mbps result.
+	bytesMoved := counter.Load()
+	if bytesMoved == 0 {
+		return 0, fmt.Errorf("no data transferred")
+	}
+
+	mbps := float64(bytesMoved) / elapsed / 125000.0
 	return mbps, nil
 }
 
-func (widget *speedtestWidget) downloadOnce(ctx context.Context, srv *speedtestServer, counter *atomic.Int64) {
+func (r *speedtestRunner) downloadOnce(ctx context.Context, srv *speedtestServer, counter *atomic.Int64) {
 	url := speedtestJoinURL(srv.Server, srv.DlURL) + "?ckSize=100"
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
@@ -417,7 +504,7 @@ func (widget *speedtestWidget) downloadOnce(ctx context.Context, srv *speedtestS
 	}
 	req.Header.Set("User-Agent", "dynacat-speedtest")
 
-	resp, err := widget.client.Do(req)
+	resp, err := r.client.Do(req)
 	if err != nil {
 		return
 	}
@@ -435,7 +522,7 @@ func (widget *speedtestWidget) downloadOnce(ctx context.Context, srv *speedtestS
 	}
 }
 
-func (widget *speedtestWidget) uploadOnce(ctx context.Context, srv *speedtestServer, payload []byte, counter *atomic.Int64) {
+func (r *speedtestRunner) uploadOnce(ctx context.Context, srv *speedtestServer, payload []byte, counter *atomic.Int64) {
 	url := speedtestJoinURL(srv.Server, srv.UlURL)
 	body := &speedtestCountingReader{reader: bytes.NewReader(payload), counter: counter}
 
@@ -447,7 +534,7 @@ func (widget *speedtestWidget) uploadOnce(ctx context.Context, srv *speedtestSer
 	req.Header.Set("Content-Type", "application/octet-stream")
 	req.Header.Set("User-Agent", "dynacat-speedtest")
 
-	resp, err := widget.client.Do(req)
+	resp, err := r.client.Do(req)
 	if err != nil {
 		return
 	}
