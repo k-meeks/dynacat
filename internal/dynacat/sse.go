@@ -328,7 +328,7 @@ func (a *application) sseCheckAndPushUpdates(ctx context.Context) {
 				return
 			}
 
-			w.update(ctx)
+			w.update(withSharedFetchMaxAge(ctx, w.getCacheDuration()))
 			html := string(w.Render())
 
 			type payload struct {

@@ -146,6 +146,7 @@ type widget interface {
 
 	initialize() error
 	requiresUpdate(*time.Time) bool
+	getCacheDuration() time.Duration
 	setProviders(*widgetProviders)
 	update(context.Context)
 	setID(uint64)
@@ -262,6 +263,24 @@ func (w *widgetBase) IsLazyLoad() bool {
 
 func (w *widgetBase) update(ctx context.Context) {
 
+}
+
+// getCacheDuration returns the effective time between updates for this widget,
+// used as the reuse window for shared HTTP requests. Returns -1 for infinite
+// cache widgets so they reuse shared responses freely.
+func (w *widgetBase) getCacheDuration() time.Duration {
+	switch w.cacheType {
+	case cacheTypeDuration:
+		if w.CustomCacheDuration == 0 && w.UpdateInterval != nil && *w.UpdateInterval > 0 {
+			return time.Duration(*w.UpdateInterval)
+		}
+		return w.cacheDuration
+	case cacheTypeOnTheHour:
+		now := time.Now()
+		return time.Duration(((60-now.Minute())*60)-now.Second()) * time.Second
+	default:
+		return -1
+	}
 }
 
 func (w *widgetBase) GetID() uint64 {

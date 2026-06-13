@@ -423,7 +423,7 @@ func (p *page) updateOutdatedWidgets() {
 	now := time.Now()
 
 	var wg sync.WaitGroup
-	context := context.Background()
+	ctx := context.Background()
 
 	for w := range p.HeadWidgets {
 		widget := p.HeadWidgets[w]
@@ -435,7 +435,7 @@ func (p *page) updateOutdatedWidgets() {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			widget.update(context)
+			widget.update(withSharedFetchMaxAge(ctx, widget.getCacheDuration()))
 		}()
 	}
 
@@ -450,7 +450,7 @@ func (p *page) updateOutdatedWidgets() {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				widget.update(context)
+				widget.update(withSharedFetchMaxAge(ctx, widget.getCacheDuration()))
 			}()
 		}
 	}
