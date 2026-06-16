@@ -38,7 +38,7 @@ The following table lists the default update intervals for widgets when `update-
 
 | Widget | Default Update Interval |
 |---|---:|
-| Calendar (legacy) | 1h |
+| Calendar (With releases configured) | 15m |
 | ChangeDetection.io | 30m |
 | Custom API | 1m |
 | Docker Containers | 2m |

@@ -1128,7 +1128,9 @@ function setupClocks() {
 }
 
 async function setupCalendars() {
-    const elems = document.getElementsByClassName("calendar");
+    // Snapshot the collection: a built calendar keeps the "calendar" class, so a
+    // live collection (and any re-entry of setup) could re-process it.
+    const elems = Array.from(document.getElementsByClassName("calendar"));
     if (elems.length == 0) return;
 
     // TODO: implement prefetching, currently loads as a nasty waterfall of requests
