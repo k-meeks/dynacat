@@ -148,6 +148,48 @@ Configuration is done through YAML files, to learn more about how the layout wor
 ```
 </details>
 
+## Multi-user profiles
+For households or shared spaces where everyone wants their own pages but full password authentication is overkill, Dynacat supports lightweight, password-less **profiles**. Define the names ahead of time, and each visitor picks theirs once from a dropdown in the header — no login required.
+
+```yaml
+auth:
+  profiles:
+    - alice
+    - bob
+
+pages:
+  - name: Home
+    slug: home
+    # No allowed-users/allowed-groups here, so this page (and the profile
+    # picker) is reachable by anyone, profile selected or not.
+    columns:
+      - size: full
+        widgets:
+          - type: hacker-news
+
+  - name: Alice
+    slug: alice
+    allowed-users:
+      - alice
+    columns:
+      - size: full
+        widgets:
+          - type: lobsters
+
+  - name: Bob
+    slug: bob
+    allowed-users:
+      - bob
+    columns:
+      - size: full
+        widgets:
+          - type: hacker-news
+```
+
+Profiles use the same `allowed-users`/`allowed-groups` restrictions as regular authenticated users — picking a profile just sets which name is "active" via a cookie, with no password behind it. Keep at least one page free of `allowed-users`/`allowed-groups` (ideally the first page, since it's also where `/` lands) so there's always somewhere to land before a profile has been chosen.
+
+This is a personalization feature, not a security boundary — anyone with access to the dashboard can pick any configured profile. Use real `auth.users`/OIDC instead if you need actual access control.
+
 ## Common issues
 <details>
 <summary><strong>Requests timing out</strong></summary>

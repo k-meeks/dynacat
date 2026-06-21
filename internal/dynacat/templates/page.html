@@ -62,7 +62,14 @@
                 </div>
             </div>
             {{ end }}
-            {{- if .AuthUser }}
+            {{- if .App.ProfilesEnabled }}
+            <div class="profile-picker self-center" data-popover-type="html" data-popover-position="below" data-popover-show-delay="0">
+                <div class="current-profile-preview color-subdue">{{ if .AuthUser }}{{ .AuthUser.Username }}{{ else }}Select profile{{ end }}</div>
+                <div data-popover-html>
+                    <div class="profile-choices"></div>
+                </div>
+            </div>
+            {{- else if .AuthUser }}
             <div class="flex items-center gap-10 self-center">
                 <span class="nav-username color-subdue">{{ .AuthUser.Username }}</span>
                 <a class="block" href="{{ .App.Config.Server.BaseURL }}/logout" title="Logout">
@@ -120,7 +127,26 @@
             </div>
             {{ end }}
 
-            {{ if .AuthUser }}
+            {{ if .App.ProfilesEnabled }}
+            <div class="profile-picker flex justify-between items-center" data-popover-type="html" data-popover-position="above" data-popover-show-delay="0" data-popover-hide-delay="100" data-popover-anchor=".current-profile-preview" data-popover-trigger="click">
+                <div data-popover-html>
+                    <div class="profile-choices">
+                        {{ range .App.Config.Auth.Profiles }}
+                        <div class="profile-choice" data-name="{{ . }}">{{ . }}</div>
+                        {{ end }}
+                    </div>
+                </div>
+
+                <div class="size-h3 pointer-events-none select-none">Switch profile</div>
+
+                <div class="flex gap-15 items-center pointer-events-none">
+                    <div class="current-profile-preview">{{ if .AuthUser }}{{ .AuthUser.Username }}{{ else }}Select{{ end }}</div>
+                    <svg class="ui-icon" stroke="var(--color-text-subdue)" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0ZM5 21a7 7 0 0 1 14 0" />
+                    </svg>
+                </div>
+            </div>
+            {{ else if .AuthUser }}
             <a href="{{ .App.Config.Server.BaseURL }}/logout" class="flex justify-between items-center">
                 <div class="size-h3">Logout ({{ .AuthUser.Username }})</div>
                 <svg class="ui-icon" stroke="var(--color-text-subdue)" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5">

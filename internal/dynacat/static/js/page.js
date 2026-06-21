@@ -1248,6 +1248,51 @@ function initThemePicker() {
     })
 }
 
+async function changeProfile(name) {
+    const response = await fetch(`${pageData.baseURL}/api/set-profile/${encodeURIComponent(name)}`, {
+        method: "POST",
+    });
+
+    if (response.status != 200) {
+        alert("Failed to set profile: " + response.statusText);
+        return;
+    }
+
+    window.location.href = pageData.baseURL + "/";
+}
+
+function initProfilePicker() {
+    const choicesInMobileNav = find(".mobile-navigation .profile-choices");
+    if (!choicesInMobileNav) return;
+
+    const choicesInHeader = find(".header-container .profile-choices");
+
+    if (choicesInHeader) {
+        choicesInHeader.replaceWith(
+            choicesInMobileNav.cloneNode(true)
+        );
+    }
+
+    const choiceElems = findAll(".profile-choices .profile-choice");
+
+    choiceElems.forEach((choiceElem) => {
+        const name = choiceElem.dataset.name;
+
+        if (name === undefined) {
+            return;
+        }
+
+        if (name == pageData.activeProfile) {
+            choiceElem.classList.add("current");
+        }
+
+        choiceElem.addEventListener("click", () => {
+            if (name == pageData.activeProfile) return;
+            changeProfile(name);
+        });
+    });
+}
+
 function initDesktopNavigationAutoshow() {
     const navContainer = document.querySelector(".header-container-navigation-hover");
     if (!navContainer) {
@@ -1301,6 +1346,7 @@ async function setupPage() {
     initDesktopNavigationAutoshow();
 
     initThemePicker();
+    initProfilePicker();
 
     const pageElement = document.getElementById("page");
     const pageContentElement = document.getElementById("page-content");

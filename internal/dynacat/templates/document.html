@@ -11,6 +11,7 @@
         /*{{ end }}*/
         baseURL: "{{ .App.Config.Server.BaseURL }}",
         theme: "{{ .Request.Theme.Key }}",
+        activeProfile: "{{ if and .App.ProfilesEnabled .AuthUser }}{{ .AuthUser.Username }}{{ end }}",
         dynamicUpdateEnabled: {{ if .Page }}{{ and .App.DynamicUpdateEnabled (.Page.DynamicUpdatesEnabled) }}{{ else }}{{ .App.DynamicUpdateEnabled }}{{ end }},
     };
     </script>

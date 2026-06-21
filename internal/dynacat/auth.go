@@ -40,6 +40,9 @@ type authenticatedUser struct {
 	Username string
 	Groups   []string
 	IsOIDC   bool
+	// IsProfile is true when this identity came from the password-less profile
+	// cookie rather than a real authenticated (password/OIDC) session.
+	IsProfile bool
 }
 
 type doWhenUnauthorized int
@@ -298,6 +301,15 @@ func (a *application) getAuthenticatedUser(w http.ResponseWriter, r *http.Reques
 		}
 	}
 
+	// Check profile cookie - a lightweight, password-less identity used purely
+	// to pick which allowed-users-restricted pages to show, not a security boundary.
+	if len(a.Config.Auth.Profiles) > 0 {
+		cookie, err := r.Cookie(PROFILE_COOKIE_NAME)
+		if err == nil && a.isValidProfile(cookie.Value) {
+			return &authenticatedUser{Username: cookie.Value, IsProfile: true}
+		}
+	}
+
 	return nil
 }
 
@@ -362,7 +374,7 @@ func (a *application) handleAccessControl(w http.ResponseWriter, r *http.Request
 	if user == nil {
 		switch fallback {
 		case redirectToLogin:
-			http.Redirect(w, r, a.Config.Server.BaseURL+"/login", http.StatusSeeOther)
+			http.Redirect(w, r, a.unauthorizedRedirectURL(), http.StatusSeeOther)
 		case showUnauthorizedJSON:
 			w.WriteHeader(http.StatusUnauthorized)
 			w.Write([]byte(`{"error": "Unauthorized"}`))
@@ -378,7 +390,7 @@ func (a *application) handleAccessControl(w http.ResponseWriter, r *http.Request
 
 	switch fallback {
 	case redirectToLogin:
-		http.Redirect(w, r, a.Config.Server.BaseURL+"/login", http.StatusSeeOther)
+		http.Redirect(w, r, a.unauthorizedRedirectURL(), http.StatusSeeOther)
 	case showUnauthorizedJSON:
 		w.WriteHeader(http.StatusUnauthorized)
 		w.Write([]byte(`{"error": "Unauthorized"}`))
@@ -395,7 +407,7 @@ func (a *application) handleUnauthorizedResponse(w http.ResponseWriter, r *http.
 
 	switch fallback {
 	case redirectToLogin:
-		http.Redirect(w, r, a.Config.Server.BaseURL+"/login", http.StatusSeeOther)
+		http.Redirect(w, r, a.unauthorizedRedirectURL(), http.StatusSeeOther)
 	case showUnauthorizedJSON:
 		w.WriteHeader(http.StatusUnauthorized)
 		w.Write([]byte(`{"error": "Unauthorized"}`))
@@ -406,6 +418,17 @@ func (a *application) handleUnauthorizedResponse(w http.ResponseWriter, r *http.
 
 func (a *application) AnyAuthEnabled() bool {
 	return a.OIDCEnabled || a.PasswordEnabled
+}
+
+// unauthorizedRedirectURL points at the login page when real (password/OIDC)
+// auth is configured, since that's the only case where /login is a registered
+// route. Profile-only setups have no login page - sending the user to "/"
+// lets them pick a profile from the picker in the nav instead.
+func (a *application) unauthorizedRedirectURL() string {
+	if a.AnyAuthEnabled() {
+		return a.Config.Server.BaseURL + "/login"
+	}
+	return a.Config.Server.BaseURL + "/"
 }
 
 // Maybe this should be a POST request instead?

@@ -483,3 +483,43 @@ kbd:active {
 .theme-picker.popover-active .current-theme-preview, .theme-picker:hover {
     opacity: 1;
 }
+
+.profile-choices {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    min-width: 10rem;
+}
+
+.profile-choice {
+    padding: 0.5rem 0.8rem;
+    border-radius: 0.3rem;
+    cursor: pointer;
+    position: relative;
+}
+
+.profile-choice::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 0.3rem;
+    border: 2px solid transparent;
+    transition: border-color .3s;
+}
+
+.profile-choice:hover::before {
+    border-color: var(--color-text-subdue);
+}
+
+.profile-choice.current::before {
+    border-color: var(--color-text-base);
+}
+
+.current-profile-preview {
+    opacity: 0.4;
+    transition: opacity .3s;
+}
+
+.profile-picker.popover-active .current-profile-preview, .profile-picker:hover {
+    opacity: 1;
+}

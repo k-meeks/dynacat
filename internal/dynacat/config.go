@@ -49,6 +49,11 @@ type config struct {
 		DisablePassword bool             `yaml:"disable-password"`
 		Users           map[string]*user `yaml:"users"`
 		OIDC            *oidcConfig      `yaml:"oidc"`
+		// Profiles are a lightweight, password-less identity used to pick which
+		// allowed-users-restricted pages to show. Unlike Users/OIDC they're not a
+		// security boundary - anyone can switch to any profile name - so they don't
+		// count towards require-auth being satisfiable.
+		Profiles []string `yaml:"profiles"`
 	} `yaml:"auth"`
 
 	Document struct {
@@ -534,8 +539,20 @@ func isConfigStateValid(config *config) error {
 
 	hasAnyAuth := len(config.Auth.Users) > 0 || config.Auth.OIDC != nil
 	hasAnyAuthMethod := (len(config.Auth.Users) > 0 && !config.Auth.DisablePassword) || config.Auth.OIDC != nil
+	hasAnyIdentitySource := hasAnyAuthMethod || len(config.Auth.Profiles) > 0
 	if hasAnyAuth && config.Auth.SecretKey == "" {
 		return fmt.Errorf("secret-key must be set when auth is configured")
+	}
+
+	seenProfiles := make(map[string]struct{}, len(config.Auth.Profiles))
+	for _, profile := range config.Auth.Profiles {
+		if profile == "" {
+			return fmt.Errorf("a profile has no name")
+		}
+		if _, exists := seenProfiles[profile]; exists {
+			return fmt.Errorf("profile %q is defined more than once", profile)
+		}
+		seenProfiles[profile] = struct{}{}
 	}
 
 	if config.Auth.RequireAuth != nil && *config.Auth.RequireAuth && !hasAnyAuthMethod {
@@ -591,8 +608,8 @@ func isConfigStateValid(config *config) error {
 	for i := range config.Pages {
 		page := &config.Pages[i]
 
-		if (len(page.AllowedUsers) > 0 || len(page.AllowedGroups) > 0) && !hasAnyAuthMethod {
-			return fmt.Errorf("page %d has allowed-users/allowed-groups but no auth method is configured", i+1)
+		if (len(page.AllowedUsers) > 0 || len(page.AllowedGroups) > 0) && !hasAnyIdentitySource {
+			return fmt.Errorf("page %d has allowed-users/allowed-groups but no auth method or profile is configured", i+1)
 		}
 
 		if page.Title == "" {

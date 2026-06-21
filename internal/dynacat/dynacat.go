@@ -57,6 +57,7 @@ type application struct {
 	usernameHashToUsername map[string]string
 	authAttemptsMu         sync.Mutex
 	failedAuthAttempts     map[string]*failedAuthAttempt
+	profileSet             map[string]struct{}
 
 	oidcProvider *gooidc.Provider
 	oidcVerifier *gooidc.IDTokenVerifier
@@ -152,6 +153,13 @@ func newApplication(c *config) (*application, error) {
 		app.oauth2Config = oauth2Cfg
 		app.oidcSessions = newSessionStore()
 		app.OIDCEnabled = true
+	}
+
+	if len(config.Auth.Profiles) > 0 {
+		app.profileSet = make(map[string]struct{}, len(config.Auth.Profiles))
+		for _, profile := range config.Auth.Profiles {
+			app.profileSet[profile] = struct{}{}
+		}
 	}
 
 	//
@@ -911,6 +919,10 @@ func (a *application) server() (func() error, func() error) {
 
 	if !a.Config.Theme.DisablePicker {
 		mux.HandleFunc("POST /api/set-theme/{key}", a.handleThemeChangeRequest)
+	}
+
+	if a.ProfilesEnabled() {
+		mux.HandleFunc("POST /api/set-profile/{name}", a.handleSetProfileRequest)
 	}
 
 	mux.HandleFunc("GET /api/widgets/{widget}/content/{$}", a.handleWidgetContentRequest)
