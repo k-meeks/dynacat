@@ -191,6 +191,8 @@ pages:
 
 Profiles use the same `allowed-users`/`allowed-groups` restrictions as regular authenticated users — picking a profile just sets which name is "active" via a cookie, with no password behind it. Keep at least one page free of `allowed-users`/`allowed-groups` (ideally the first page, since it's also where `/` lands) so there's always somewhere to land before a profile has been chosen.
 
+Mark that landing page `guest-only: true` so it doesn't linger once someone's picked a profile: guest-only pages are excluded from the nav, and from the default `/` landing, for anyone with an identity (a profile *or* a real authenticated session) — `/` jumps straight to that person's own first accessible page instead. Without it, you'd keep landing back on the picker page every visit even after choosing a profile.
+
 This is a personalization feature, not a security boundary — anyone with access to the dashboard can pick any configured profile. Use real `auth.users`/OIDC instead if you need actual access control.
 
 For a fuller example combining profiles with a realistic homelab dashboard, see [`docs/docs/profiles-example.yml`](docs/docs/profiles-example.yml).
