@@ -1,0 +1,122 @@
+# A fuller example of the multi-user profiles feature (see the README's
+# "Multi-user profiles" section) combined with a realistic homelab dashboard.
+# Swap the placeholder URLs/locations for your own, then add/remove profiles
+# and allowed-users as needed.
+
+auth:
+  profiles:
+    - Alice
+    - Bob
+
+pages:
+  - name: Home
+    # Unrestricted landing page - shown before a profile is chosen. Keeps "/"
+    # safe to redirect to - see the README. guest-only: once a profile is
+    # picked, this page drops out of the nav and "/" jumps straight to that
+    # profile's own first page instead.
+    guest-only: true
+    columns:
+      - size: full
+        widgets:
+          - type: html
+            title: Welcome
+            source: <p>Pick your name from the dropdown in the top right to see your pages.</p>
+
+  - name: Dashboard
+    allowed-users:
+      - Alice
+    columns:
+      - size: small
+        widgets:
+          - type: search
+            search-engine: duckduckgo
+            autofocus: true
+
+          - type: calendar
+            first-day-of-week: sunday
+
+          - type: weather
+            location: Austin, Texas, United States
+            units: imperial
+            hour-format: 12h
+
+          - type: bookmarks
+            groups:
+              - title: Homelab
+                links:
+                  - title: OpenMediaVault
+                    url: https://nas.lan            # <-- edit
+                    icon: sh:openmediavault
+                  - title: Router
+                    url: http://router.lan           # <-- edit
+                    icon: sh:pfsense
+                  - title: Home Assistant
+                    url: https://homeassistant.lan:8123   # <-- edit
+                    icon: sh:home-assistant
+
+      - size: full
+        widgets:
+          - type: monitor
+            cache: 1m
+            title: Homelab Services
+            sites:
+              - title: OpenMediaVault
+                url: https://nas.lan            # <-- edit
+                icon: sh:openmediavault
+                allow-insecure: true            # self-signed cert
+              - title: Router
+                url: http://router.lan          # <-- edit
+                icon: sh:pfsense
+                allow-insecure: true             # self-signed cert
+              - title: Home Assistant
+                url: https://homeassistant.lan:8123    # <-- edit
+                icon: sh:home-assistant
+                allow-insecure: true
+
+          # Requires the docker.sock mount - see the README's Docker compose example.
+          - type: docker-containers
+            hide-by-default: false
+
+          - type: split-column
+            widgets:
+              - type: hacker-news
+                limit: 15
+                collapse-after: 5
+              - type: lobsters
+                sort-by: hot
+                limit: 15
+                collapse-after: 5
+
+      - size: small
+        widgets:
+          # NOTE: in a container, server-stats reports the CONTAINER's view of
+          # the host. For accurate host CPU/mem/disk you'll want to either run
+          # Dynacat with host PID/mount access or point at a remote agent.
+          - type: server-stats
+            servers:
+              - type: local
+                name: NAS Host
+
+          - type: releases
+            cache: 6h
+            repositories:
+              - panonim/dynacat
+              - home-assistant/core
+              - openmediavault/openmediavault
+
+          - type: group
+            widgets:
+              - type: reddit
+                subreddit: selfhosted
+                show-thumbnails: true
+                collapse-after: 6
+              - type: reddit
+                subreddit: homelab
+                collapse-after: 6
+
+  - name: Bob
+    allowed-users:
+      - Bob
+    columns:
+      - size: full
+        widgets: []

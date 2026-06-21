@@ -572,6 +572,9 @@ func (a *application) getAccessiblePages(user *authenticatedUser) []*page {
 	pages := make([]*page, 0, len(a.Config.Pages))
 	for i := range a.Config.Pages {
 		p := &a.Config.Pages[i]
+		if user != nil && p.GuestOnly {
+			continue
+		}
 		if user == nil {
 			// Unauthenticated: only pages with no restrictions (when RequireAuth is false)
 			if len(p.AllowedUsers) == 0 && len(p.AllowedGroups) == 0 {
@@ -587,10 +590,23 @@ func (a *application) getAccessiblePages(user *authenticatedUser) []*page {
 }
 
 func (a *application) handlePageRequest(w http.ResponseWriter, r *http.Request) {
-	page, exists := a.slugToPage[r.PathValue("page")]
+	slug := r.PathValue("page")
+	page, exists := a.slugToPage[slug]
 	if !exists {
 		a.handleNotFound(w, r)
 		return
+	}
+
+	// A guest-only landing page (e.g. a profile picker) is only the default "/"
+	// landing for visitors with no identity yet - once identified, skip straight
+	// to their own first accessible page instead.
+	if slug == "" && page.GuestOnly {
+		if user := a.getAuthenticatedUser(w, r); user != nil {
+			if accessible := a.getAccessiblePages(user); len(accessible) > 0 {
+				http.Redirect(w, r, a.Config.Server.BaseURL+"/"+accessible[0].Slug, http.StatusSeeOther)
+				return
+			}
+		}
 	}
 
 	if a.handleAccessControl(w, r, page, redirectToLogin) {

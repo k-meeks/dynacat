@@ -161,7 +161,10 @@ pages:
   - name: Home
     slug: home
     # No allowed-users/allowed-groups here, so this page (and the profile
-    # picker) is reachable by anyone, profile selected or not.
+    # picker) is reachable by anyone, profile selected or not. guest-only
+    # additionally drops it from the nav and the default "/" landing once a
+    # profile has been picked, jumping straight to that profile's own page.
+    guest-only: true
     columns:
       - size: full
         widgets:
@@ -189,6 +192,8 @@ pages:
 Profiles use the same `allowed-users`/`allowed-groups` restrictions as regular authenticated users — picking a profile just sets which name is "active" via a cookie, with no password behind it. Keep at least one page free of `allowed-users`/`allowed-groups` (ideally the first page, since it's also where `/` lands) so there's always somewhere to land before a profile has been chosen.
 
 This is a personalization feature, not a security boundary — anyone with access to the dashboard can pick any configured profile. Use real `auth.users`/OIDC instead if you need actual access control.
+
+For a fuller example combining profiles with a realistic homelab dashboard, see [`docs/docs/profiles-example.yml`](docs/docs/profiles-example.yml).
 
 ## Common issues
 <details>

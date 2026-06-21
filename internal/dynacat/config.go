@@ -114,7 +114,12 @@ type page struct {
 	HideDesktopNavigation  bool    `yaml:"hide-desktop-navigation"`
 	CenterVertically       bool    `yaml:"center-vertically"`
 	HideFromNavigation     bool    `yaml:"hide-from-navigation"`
-	KeyBind                string  `yaml:"key-bind"`
+	// GuestOnly pages (e.g. a profile-picker landing page) are only shown,
+	// and only used as the default "/" landing, for visitors with no
+	// identity (no profile cookie, no authenticated session). Once
+	// identified, they're skipped in favor of the user's own pages.
+	GuestOnly bool   `yaml:"guest-only"`
+	KeyBind   string `yaml:"key-bind"`
 	HeadWidgets            widgets `yaml:"head-widgets"`
 	Columns                []struct {
 		Size    string  `yaml:"size"`
@@ -610,6 +615,10 @@ func isConfigStateValid(config *config) error {
 
 		if (len(page.AllowedUsers) > 0 || len(page.AllowedGroups) > 0) && !hasAnyIdentitySource {
 			return fmt.Errorf("page %d has allowed-users/allowed-groups but no auth method or profile is configured", i+1)
+		}
+
+		if page.GuestOnly && (len(page.AllowedUsers) > 0 || len(page.AllowedGroups) > 0) {
+			return fmt.Errorf("page %d has guest-only set together with allowed-users/allowed-groups, which is contradictory", i+1)
 		}
 
 		if page.Title == "" {
